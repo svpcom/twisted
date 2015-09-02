@@ -1364,9 +1364,41 @@ def returnValue(val):
 
 
 
-def _inlineCallbacks(result, g, deferred):
+class _CancellationStatus(object):
     """
-    See L{inlineCallbacks}.
+    Cancellation status of an L{inlineCallbacks} invocation.
+
+    @ivar waitingOn: the L{Deferred} being waited upon (which
+        L{_inlineCallbacks} must fill out before returning)
+
+    @ivar deferred: the L{Deferred} to callback or errback when the generator
+        invocation has finished.
+    """
+
+    def __init__(self, deferred):
+        self.waitingOn = None
+        self.deferred = deferred
+
+
+
+def _inlineCallbacks(result, g, status):
+    """
+    Carry out the work of L{inlineCallbacks}.
+
+    Iterate the generator produced by an C{@}L{inlineCallbacks}-decorated
+    function, C{g}, C{send()}ing it the results of each value C{yield}ed by that
+    generator, until a L{Deferred} is yielded, at which point a callback is
+    added to that L{Deferred} to call this function again.
+
+    @param result: The last result seen by this generator.  Note that this is
+        never a L{Deferred} - by the time this function is invoked, the
+        L{Deferred} has been called back and this will be a particular result at
+        a point in its callback chain.
+
+    @param g: a generator object returned by calling a function or method
+        decorated with C{@}L{inlineCallbacks}
+
+    @param status: a L{_CancellationStatus} tracking the current status of C{g}
     """
     # This function is complicated by the need to prevent unbounded recursion
     # arising from repeatedly yielding immediately ready deferreds.  This while
@@ -1386,8 +1418,8 @@ def _inlineCallbacks(result, g, deferred):
                 result = g.send(result)
         except StopIteration as e:
             # fell off the end, or "return" statement
-            deferred.callback(getattr(e, "value", None))
-            return deferred
+            status.deferred.callback(getattr(e, "value", None))
+            return
         except _DefGen_Return as e:
             # returnValue() was called; time to give a result to the original
             # Deferred.  First though, let's try to identify the potentially
@@ -1426,11 +1458,11 @@ def _inlineCallbacks(result, g, deferred):
                         ultimateTrace.tb_frame.f_code.co_name,
                         appCodeTrace.tb_frame.f_code.co_name),
                     DeprecationWarning, filename, lineno)
-            deferred.callback(e.value)
-            return deferred
+            status.deferred.callback(e.value)
+            return
         except:
-            deferred.errback()
-            return deferred
+            status.deferred.errback()
+            return
 
         if isinstance(result, Deferred):
             # a deferred was yielded, get the result.
@@ -1439,14 +1471,16 @@ def _inlineCallbacks(result, g, deferred):
                     waiting[0] = False
                     waiting[1] = r
                 else:
-                    _inlineCallbacks(r, g, deferred)
+                    # We are not waiting for deferred result any more
+                    _inlineCallbacks(r, g, status)
 
             result.addBoth(gotResult)
             if waiting[0]:
                 # Haven't called back yet, set flag so that we get reinvoked
                 # and return from the loop
                 waiting[0] = False
-                return deferred
+                status.waitingOn = result
+                return
 
             result = waiting[1]
             # Reset waiting to initial values for next loop.  gotResult uses
@@ -1454,13 +1488,23 @@ def _inlineCallbacks(result, g, deferred):
             # executed once, and if it hasn't been executed yet, the return
             # branch above would have been taken.
 
-
             waiting[0] = True
             waiting[1] = None
 
 
-    return deferred
+def _startInlineCallbacks(g):
+    """
+    This function prepares and starts generator processing. See
+    L{inlineCallbacks} for details about this generator.
 
+    @param g: generator to be processed.
+    """
+
+
+class _PeculiarError(Exception):
+    """
+    A distinctive exception, only raised by cancelling an inline callback.
+    """
 
 
 def inlineCallbacks(f):
@@ -1472,6 +1516,9 @@ def inlineCallbacks(f):
         def thingummy():
             thing = yield makeSomeRequestResultingInDeferred()
             print(thing)  # the result! hoorj!
+
+    WARNING: this syntax was introduced in Python 2.5, so this example will not
+    work in Python 2.4 and earlier!
 
     When you call anything that results in a L{Deferred}, you can simply yield it;
     your generator will automatically be resumed when the Deferred's result is
@@ -1509,6 +1556,13 @@ def inlineCallbacks(f):
                 # will trigger an errback
                 raise Exception('DESTROY ALL LIFE')
 
+    You can cancel the L{Deferred} returned from your L{inlineCallbacks}
+    generator before it is fired by your generator completing (either by
+    reaching its end, a C{return} statement, or by calling L{returnValue}).
+    This will cause any L{Deferred} being awaited upon in a C{yield} statement
+    to be cancelled, with whatever effects would result from that (often a
+    C{CancelledError} being raised from the C{yield}, but not always).
+
     If you are using Python 3.3 or later, it is possible to use the C{return}
     statement instead of L{returnValue}::
 
@@ -1529,7 +1583,25 @@ def inlineCallbacks(f):
             raise TypeError(
                 "inlineCallbacks requires %r to produce a generator; "
                 "instead got %r" % (f, gen))
-        return _inlineCallbacks(None, gen, Deferred())
+
+        def cancel(it):
+            it.callbacks, tmp = [], it.callbacks
+            it.addErrback(handleCancel)
+            it.callbacks.extend(tmp)
+            it.errback(_PeculiarError())
+
+        deferred = Deferred(cancel)
+        status = _CancellationStatus(deferred)
+
+        def handleCancel(result):
+            result.trap(_PeculiarError)
+            status.deferred = Deferred(cancel)
+            awaited = status.waitingOn
+            awaited.cancel()
+            return status.deferred
+
+        _inlineCallbacks(None, gen, status)
+        return deferred
     return unwindGenerator
 
 
