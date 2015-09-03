@@ -72,7 +72,7 @@ class LoopingCall:
         self.kw = kw
         from twisted.internet import reactor
         self.clock = reactor
-
+	self._deferredOfFunction = None
 
     def withCount(cls, countCallable):
         """
