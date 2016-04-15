@@ -37,6 +37,38 @@ _timeFunctions = {
     }
 
 
+def _fun_monotonicTimeLinux():
+    from cffi import FFI
+
+    ffi = FFI()
+    CLOCK_MONOTONIC = 1    # <linux/time.h>
+
+    functions = """\
+    typedef int32_t clockid_t;
+    struct timespec {
+        long  tv_sec;
+        long  tv_nsec;
+    };
+
+    extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
+    """
+    ffi.cdef(functions)
+
+    _librt = ffi.verify('#include <time.h>', libraries=['rt'])
+
+    def monotonicTimeLinux():
+        t = ffi.new('struct timespec *')
+        if _librt.clock_gettime(CLOCK_MONOTONIC, t) != 0:
+            errno_ = ffi.errno
+            raise OSError(errno_, os.strerror(errno_))
+        return t.tv_sec + t.tv_nsec * 1e-9
+    return monotonicTimeLinux
+
+if sys.platform.startswith("linux"):
+    _defaultTimeFunc = _fun_monotonicTimeLinux()
+else:
+    _defaultTimeFunc = time.time
+
 
 @_oldStyle
 class Platform:
@@ -45,13 +77,13 @@ class Platform:
     """
 
     type = knownPlatforms.get(os.name)
-    seconds = staticmethod(_timeFunctions.get(type, time.time))
+    seconds = staticmethod(_timeFunctions.get(type, _defaultTimeFunc))
     _platform = sys.platform
 
     def __init__(self, name=None, platform=None):
         if name is not None:
             self.type = knownPlatforms.get(name)
-            self.seconds = _timeFunctions.get(self.type, time.time)
+            self.seconds = _timeFunctions.get(self.type, _defaultTimeFunc)
         if platform is not None:
             self._platform = platform
 
