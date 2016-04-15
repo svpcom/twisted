@@ -1257,7 +1257,7 @@ class InMemoryRegistry:
             return defer.fail(LookupError("unknown domain"))
         if userURI.username in self.users:
             dc, url = self.users[userURI.username]
-            return defer.succeed(Registration(int(dc.getTime() - time.time()), url))
+            return defer.succeed(Registration(int(dc.getTime() - dc.seconds()), url))
         else:
             return defer.fail(LookupError("no such user"))
 
@@ -1287,7 +1287,7 @@ class InMemoryRegistry:
             dc = reactor.callLater(3600, self._expireRegistration, logicalURL.username)
         log.msg("Registered %s at %s" % (logicalURL.toString(), physicalURL.toString()))
         self.users[logicalURL.username] = (dc, physicalURL)
-        return defer.succeed(Registration(int(dc.getTime() - time.time()), physicalURL))
+        return defer.succeed(Registration(int(dc.getTime() - dc.seconds()), physicalURL))
 
 
     def unregisterAddress(self, domainURL, logicalURL, physicalURL):
