@@ -802,7 +802,11 @@ class TimeTests(unittest.TestCase):
     def testCallLaterTime(self):
         d = reactor.callLater(10, lambda: None)
         try:
-            self.assertTrue(d.getTime() - (time.time() + 10) < 1)
+            callTime = d.getTime()
+            timeNow = d.seconds()
+            self.assertTrue(callTime >= 0, callTime)
+            self.assertTrue(callTime - (timeNow + 10) < 1,
+                dict(callTime=callTime, timeNow=timeNow))
         finally:
             d.cancel()
 
