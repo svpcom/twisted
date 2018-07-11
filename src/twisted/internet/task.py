@@ -68,6 +68,7 @@ class LoopingCall:
     interval = None
     _runAtStart = False
     starttime = None
+    _runNow = False
 
     def __init__(self, f, *a, **kw):
         self.f = f
@@ -76,6 +77,15 @@ class LoopingCall:
         from twisted.internet import reactor
         self.clock = reactor
         self._deferredOfFunction = None
+
+    def runNow(self):
+        """
+        Run task if not running or schedule out of order run when finished
+        """
+        if self.call is not None and self.call.active():
+            self.call.reset(0)
+        else:
+            self._runNow = True
 
     @property
     def deferred(self):
@@ -294,6 +304,9 @@ class LoopingCall:
             # How long should it take until the next invocation of our
             # callable?  Split out into a function because there are multiple
             # places we want to 'return' out of this.
+            if self._runNow:
+                self._runNow = False
+                return 0
             if self.interval == 0:
                 # If the interval is 0, just go as fast as possible, always
                 # return zero, call ourselves ASAP.
