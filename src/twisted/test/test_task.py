@@ -780,6 +780,37 @@ class LoopTests(unittest.TestCase):
         deferredOfLoopingCall.cancel()
 
 
+    def test_runNow1(self):
+        ts = reactor.seconds()
+        def _f():
+            self.assertEqual(flag, 2)
+            self.assertLess(reactor.seconds() - ts, 1.0)
+            t.stop()
+
+        t = task.LoopingCall(_f)
+        df = t.start(2, now=False)
+        flag = 1
+        t.runNow()
+        flag = 2
+        return df
+
+
+    def test_runNow2(self):
+        ts = reactor.seconds()
+        flag = [0]
+        def _f():
+            if flag[0] == 0:
+                t.runNow()
+                flag[0] = 1
+            if flag[0] == 1:
+                self.assertLess(reactor.seconds() - ts, 1.0)
+                t.stop()
+
+        t = task.LoopingCall(_f)
+        df = t.start(2, now=True)
+        return df
+
+
     def test_reset(self):
         """
         Test that L{LoopingCall} can be reset.
