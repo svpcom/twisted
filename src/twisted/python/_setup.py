@@ -278,12 +278,13 @@ def getSetupArgs(extensions=_EXTENSIONS, readme='README.rst'):
         # Python 2.7.
         "PyHamcrest >= 1.9.0, != 1.10.0",
         "attrs >= 19.2.0",
+        "typing >= 3.7.4.3"
     ]
 
     arguments.update(dict(
         packages=find_packages("src"),
         use_incremental=True,
-        setup_requires=["incremental >= 16.10.1"],
+        setup_requires=["incremental >= 16.10.1", "typing >= 3.7.4.3"],
         install_requires=requirements,
         entry_points={
             'console_scripts': _CONSOLE_SCRIPTS
