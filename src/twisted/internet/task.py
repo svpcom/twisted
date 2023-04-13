@@ -364,10 +364,10 @@ class _Timer:
     MAX_SLICE = 0.01
 
     def __init__(self) -> None:
-        self.end = time.time() + self.MAX_SLICE
+        self.end = time.monotonic() + self.MAX_SLICE
 
     def __call__(self) -> bool:
-        return time.time() >= self.end
+        return time.monotonic() >= self.end
 
 
 _EPSILON = 0.00000001

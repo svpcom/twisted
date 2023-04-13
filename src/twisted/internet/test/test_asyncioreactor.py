@@ -209,11 +209,8 @@ class AsyncioSelectorReactorTests(ReactorBuilder, SynchronousTestCase):
         reactor = AsyncioSelectorReactor()
         result = reactor.seconds()
 
-        # greater than 2020-01-01
-        self.assertGreater(result, 1577836800)
-
-        # less than 2120-01-01
-        self.assertLess(result, 4733510400)
+        # Uptime less than 10 years 
+        self.assertLess(result, 86400 * 3650)
 
     def test_delayedCallResetToLater(self):
         """

@@ -3431,7 +3431,7 @@ class HTTPFactory(protocol.ServerFactory):
         """
         Update log datetime periodically, so we aren't always recalculating it.
         """
-        self._logDateTime = datetimeToLogString(self.reactor.seconds())
+        self._logDateTime = datetimeToLogString(time())
         self._logDateTimeCall = self.reactor.callLater(1, self._updateLogDateTime)
 
     def buildProtocol(self, addr: IAddress) -> Protocol | None:
