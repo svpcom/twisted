@@ -13,8 +13,8 @@ __all__ = [
 ]
 import os
 import sys
+from time import monotonic as seconds
 import warnings
-from time import time as seconds
 
 
 def shortPythonVersion() -> str:
