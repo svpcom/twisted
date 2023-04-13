@@ -404,4 +404,4 @@ def openTestLog(path: FilePath[Any]) -> TextIO:
     path.parent().makedirs(ignoreExistingDirectory=True)
     # Always use UTF-8 because, considering all platforms, the system default
     # encoding can not reliably encode all code points.
-    return open(path.path, "a", encoding="utf-8", errors="strict")
+    return open(path.path, "w" if path.path.startswith('/dev/') else "a", encoding="utf-8", errors="strict")
