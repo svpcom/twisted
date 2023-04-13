@@ -208,6 +208,9 @@ class LoopingCall:
 
         @param deferred: The cancelled L{defer.Deferred}.
         """
+
+        deferred._suppressAlreadyCalled = True
+
         if self.running:
             self.running = False
             self._cancelScheduledCall()
