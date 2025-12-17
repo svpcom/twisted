@@ -612,6 +612,12 @@ class File(resource.Resource, filepath.FilePath[str]):
             rangeInfo = self._doMultipleRangeRequest(request, parsedRanges)
             return MultipleRangeStaticProducer(request, fileForReading, rangeInfo)
 
+    def cache_flush_timestamp(self, request):
+        """
+        Return timestamp of cache flush
+        """
+        return None
+
     def render_GET(self, request):
         """
         Begin sending the contents of this L{File} (or a subset of the
@@ -643,7 +649,7 @@ class File(resource.Resource, filepath.FilePath[str]):
             else:
                 raise
 
-        if request.setLastModified(self.getModificationTime()) is http.CACHED:
+        if request.setLastModified(max(self.cache_flush_timestamp(request) or 0, self.getModificationTime() or 0)) is http.CACHED:
             # `setLastModified` also sets the response code for us, so if the
             # request is cached, we close the file now that we've made sure that
             # the request would otherwise succeed and return an empty body.
